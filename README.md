@@ -6,6 +6,8 @@
 - フロントエンド: [public/](public/) (HTML / CSS / JS)
 - 保存先: `data/` (GitHub には **アップロードしません**。`.gitignore` で除外)
 
+![ロゴ画像](image-ph.png)
+
 ## 必要要件
 
 - root 権限 (`sudo`)
@@ -117,5 +119,9 @@ sudo tailscale serve off
 ```bash
 sudo bash install-spw.sh   # GitHub から再インストール
 ```
+
+## ライセンス
+
+このプロジェクトは [MIT License](LICENSE) の下で公開されています。
 
 `data/` が残っていれば、以前のデータをそのまま引き継げます。
