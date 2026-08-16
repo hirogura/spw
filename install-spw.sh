@@ -72,6 +72,8 @@ elif [ -d "$INSTALL_DIR" ] && [ -n "$(ls -A "$INSTALL_DIR" 2>/dev/null)" ]; then
     echo "data/ を一時退避中..."
     mv "$INSTALL_DIR/data" "/tmp/spw-data-backup-$$"
   fi
+  echo "旧ファイルを削除して再取得します..."
+  find "$INSTALL_DIR" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
   git clone --branch "$REPO_BRANCH" "$REPO_URL" "$INSTALL_DIR"
   if [ -d "/tmp/spw-data-backup-$$" ]; then
     echo "data/ を復元中..."
