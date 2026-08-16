@@ -216,6 +216,36 @@ body {
 .detail-actions { display: flex; gap: 4px; }
 #detail-fields { background: var(--surface); }
 
+#detail-memo {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 12px 12px;
+}
+
+#detail-memo label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+#detail-memo textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+}
+
+#detail-memo textarea:focus { border-color: var(--accent); }
+
 .field-row {
   display: flex;
   align-items: center;

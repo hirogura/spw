@@ -138,6 +138,8 @@ function collectCurrentInputs() {
   if (!selectedCard) return;
   const nameInput = document.getElementById('detail-card-name');
   if (nameInput) selectedCard.name = nameInput.value;
+  const memoInput = document.getElementById('detail-memo-input');
+  if (memoInput) selectedCard.memo = memoInput.value;
   document.querySelectorAll('#detail-fields .field-row').forEach((row, idx) => {
     if (!selectedCard.fields[idx]) return;
     const keyInput = row.querySelector('.field-label-input');
@@ -210,13 +212,16 @@ function showCardDetail(catId, cardId) {
   document.getElementById('card-detail').style.display = 'block';
   document.getElementById('detail-card-name').value = card.name;
 
+  const memoInput = document.getElementById('detail-memo-input');
+  if (memoInput) memoInput.value = card.memo || '';
+
   const fieldsDiv = document.getElementById('detail-fields');
   fieldsDiv.innerHTML = '';
 
   card.fields.forEach((field, idx) => {
     const row = document.createElement('div');
     row.className = 'field-row';
-    const isPw = isPasswordField(field.key);
+    const isPw = field.masked !== undefined ? field.masked : isPasswordField(field.key);
     row.innerHTML = `
       <input type="text" class="field-label-input" data-idx="${idx}" value="${escAttr(field.key)}">
       <div class="field-input-wrap">
@@ -263,7 +268,7 @@ document.getElementById('category-list').addEventListener('click', e => {
     const catId = addCard.dataset.cat;
     const cat = data.categories.find(c => c.id === catId);
     if (!cat) return;
-    const card = { id: genId(), name: '新しいカード', fields: [{ key: 'ID', value: '' }, { key: 'パスワード', value: '' }] };
+    const card = { id: genId(), name: '新しいカード', memo: '', fields: [{ key: 'ID', value: '' }, { key: 'パスワード', value: '' }] };
     cat.cards.push(card);
     saveData();
     showCardDetail(catId, card.id);
@@ -319,7 +324,7 @@ document.getElementById('btn-add-category').addEventListener('click', () => {
 document.getElementById('btn-add-field').addEventListener('click', () => {
   if (!selectedCard) return;
   collectCurrentInputs();
-  selectedCard.fields.push({ key: '新しい項目', value: '' });
+  selectedCard.fields.push({ key: '新しい項目', value: '', masked: true });
   markDirty();
   showCardDetail(selectedCategoryId, selectedCard.id);
 });
@@ -343,6 +348,10 @@ document.getElementById('detail-fields').addEventListener('click', e => {
   if (toggleBtn) {
     const row = toggleBtn.closest('.field-row');
     const input = row.querySelector('.field-value-input');
+    const idx = parseInt(toggleBtn.dataset.idx);
+    if (selectedCard && selectedCard.fields[idx]) {
+      selectedCard.fields[idx].masked = input.type === 'password' ? false : true;
+    }
     if (input.type === 'password') {
       input.type = 'text';
       toggleBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
@@ -499,6 +508,8 @@ document.getElementById('change-pw-modal').addEventListener('click', e => {
 });
 
 document.getElementById('detail-card-name').addEventListener('input', () => markDirty());
+
+document.getElementById('detail-memo-input').addEventListener('input', () => markDirty());
 
 document.getElementById('detail-fields').addEventListener('input', e => {
   if (e.target.classList.contains('field-label-input') || e.target.classList.contains('field-value-input')) {
