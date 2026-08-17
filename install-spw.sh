@@ -63,6 +63,7 @@ echo "7zip: $(7z --help 2>&1 | head -1)"
 if [ -d "$INSTALL_DIR/.git" ]; then
   echo ""
   echo "=== 既存のインストールを GitHub から更新します ==="
+  git config --global --add safe.directory "$INSTALL_DIR"
   git -C "$INSTALL_DIR" fetch origin
   git -C "$INSTALL_DIR" reset --hard "origin/$REPO_BRANCH"
 elif [ -d "$INSTALL_DIR" ] && [ -n "$(ls -A "$INSTALL_DIR" 2>/dev/null)" ]; then
