@@ -214,6 +214,18 @@ body {
 
 .card-name-input:focus { border-color: var(--accent); }
 .detail-actions { display: flex; gap: 4px; }
+
+.category-select {
+  max-width: 180px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--text);
+  font-size: 12px;
+  outline: none;
+}
+
+.category-select:focus { border-color: var(--accent); }
 #detail-fields { background: var(--surface); }
 
 #detail-memo {

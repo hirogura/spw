@@ -198,6 +198,19 @@ function isPasswordField(key) {
   return k.includes('パスワード') || k.includes('password') || k.includes('pass') || k.includes('secret');
 }
 
+function renderCategorySelect() {
+  const sel = document.getElementById('detail-category-select');
+  if (!sel) return;
+  sel.innerHTML = '';
+  sortedByName(data.categories).forEach(cat => {
+    const opt = document.createElement('option');
+    opt.value = cat.id;
+    opt.textContent = cat.name;
+    sel.appendChild(opt);
+  });
+  if (selectedCategoryId) sel.value = selectedCategoryId;
+}
+
 function showCardDetail(catId, cardId) {
   collectCurrentInputs();
   const cat = data.categories.find(c => c.id === catId);
@@ -207,6 +220,7 @@ function showCardDetail(catId, cardId) {
 
   selectedCard = card;
   selectedCategoryId = catId;
+  renderCategorySelect();
 
   document.getElementById('welcome-screen').style.display = 'none';
   document.getElementById('card-detail').style.display = 'block';
@@ -285,6 +299,7 @@ document.getElementById('category-list').addEventListener('click', e => {
     cat.name = newName;
     saveData();
     renderSidebar(document.getElementById('search-input').value);
+    renderCategorySelect();
     return;
   }
 
@@ -301,6 +316,7 @@ document.getElementById('category-list').addEventListener('click', e => {
       document.getElementById('welcome-screen').style.display = 'flex';
     }
     renderSidebar(document.getElementById('search-input').value);
+    renderCategorySelect();
     return;
   }
 
@@ -319,6 +335,7 @@ document.getElementById('btn-add-category').addEventListener('click', () => {
   data.categories.push(cat);
   saveData();
   renderSidebar();
+  renderCategorySelect();
 });
 
 document.getElementById('btn-add-field').addEventListener('click', () => {
@@ -327,6 +344,21 @@ document.getElementById('btn-add-field').addEventListener('click', () => {
   selectedCard.fields.push({ key: '新しい項目', value: '', masked: true });
   markDirty();
   showCardDetail(selectedCategoryId, selectedCard.id);
+});
+
+document.getElementById('detail-category-select').addEventListener('change', e => {
+  if (!selectedCard || !selectedCategoryId) return;
+  const newCatId = e.target.value;
+  if (newCatId === selectedCategoryId) return;
+  collectCurrentInputs();
+  const oldCat = data.categories.find(c => c.id === selectedCategoryId);
+  const newCat = data.categories.find(c => c.id === newCatId);
+  if (!oldCat || !newCat) return;
+  oldCat.cards = oldCat.cards.filter(c => c.id !== selectedCard.id);
+  newCat.cards.push(selectedCard);
+  selectedCategoryId = newCatId;
+  saveData();
+  renderSidebar(document.getElementById('search-input').value);
 });
 
 document.getElementById('btn-delete-card').addEventListener('click', () => {
