@@ -1,0 +1,10 @@
+# Runtime data (database / encrypted passwords / backups) - 個人情報のためコミットしない
+data/
+
+# Python
+__pycache__/
+*.pyc
+
+# OS / editor
+.DS_Store
+*.swp
