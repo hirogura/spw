@@ -21,24 +21,30 @@ async function apiFetch(url, options = {}) {
 }
 
 async function checkAuth() {
-  const res = await fetch('/api/auth/status');
-  const { hasPassword } = await res.json();
-  if (!hasPassword) {
-    document.getElementById('auth-setup').style.display = 'block';
-    document.getElementById('auth-login').style.display = 'none';
-  } else if (!authToken) {
-    document.getElementById('auth-setup').style.display = 'none';
-    document.getElementById('auth-login').style.display = 'block';
-  } else {
-    const checkRes = await apiFetch('/api/passwords');
-    if (checkRes.ok) {
-      showApp();
-    } else {
-      authToken = null;
-      localStorage.removeItem('spw_token');
+  try {
+    const res = await fetch('/api/auth/status');
+    const { hasPassword } = await res.json();
+    if (!hasPassword) {
+      document.getElementById('auth-setup').style.display = 'block';
+      document.getElementById('auth-login').style.display = 'none';
+    } else if (!authToken) {
       document.getElementById('auth-setup').style.display = 'none';
       document.getElementById('auth-login').style.display = 'block';
+    } else {
+      const checkRes = await apiFetch('/api/passwords');
+      if (checkRes.ok) {
+        showApp();
+      } else {
+        authToken = null;
+        localStorage.removeItem('spw_token');
+        document.getElementById('auth-setup').style.display = 'none';
+        document.getElementById('auth-login').style.display = 'block';
+      }
     }
+  } catch (e) {
+    document.getElementById('auth-setup').style.display = 'none';
+    document.getElementById('auth-login').style.display = 'block';
+    showAuthError('サーバーに接続できません');
   }
 }
 
@@ -141,9 +147,17 @@ document.getElementById('btn-restart').addEventListener('click', async () => {
 });
 
 document.getElementById('btn-logout').addEventListener('click', async () => {
-  await apiFetch('/api/auth/logout', { method: 'POST' });
+  try { await apiFetch('/api/auth/logout', { method: 'POST' }); } catch (e) {}
   authToken = null;
   localStorage.removeItem('spw_token');
+  data = { categories: [] };
+  selectedCard = null;
+  selectedCategoryId = null;
+  markClean();
+  document.getElementById('card-detail').style.display = 'none';
+  document.getElementById('welcome-screen').style.display = 'flex';
+  document.getElementById('category-list').innerHTML = '';
+  document.getElementById('search-input').value = '';
   document.getElementById('app').style.display = 'none';
   document.getElementById('auth-screen').style.display = 'flex';
   document.getElementById('auth-setup').style.display = 'none';
@@ -168,21 +182,57 @@ async function loadData() {
     location.reload();
     return;
   }
-  data = await res.json();
+  try {
+    const parsed = await res.json();
+    data = normalizeData(parsed);
+  } catch (e) {
+    data = { categories: [] };
+  }
   renderSidebar();
 }
 
-async function saveData() {
-  await apiFetch('/api/passwords', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
+function normalizeData(parsed) {
+  if (!parsed || !Array.isArray(parsed.categories)) return { categories: [] };
+  parsed.categories.forEach(cat => {
+    if (typeof cat.name !== 'string') cat.name = '';
+    if (typeof cat.id !== 'string') cat.id = genId();
+    if (!Array.isArray(cat.cards)) cat.cards = [];
+    cat.cards.forEach(card => {
+      if (typeof card.name !== 'string') card.name = '';
+      if (typeof card.id !== 'string') card.id = genId();
+      if (typeof card.memo !== 'string') card.memo = '';
+      if (!Array.isArray(card.fields)) card.fields = [];
+      card.fields.forEach(f => {
+        if (typeof f.key !== 'string') f.key = '';
+        if (typeof f.value !== 'string') f.value = '';
+      });
+    });
   });
-  markClean();
+  return parsed;
+}
+
+async function saveData() {
+  try {
+    const res = await apiFetch('/api/passwords', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) {
+      alert('保存に失敗しました');
+      return false;
+    }
+    markClean();
+    return true;
+  } catch (e) {
+    alert('保存に失敗しました: サーバーに接続できません');
+    return false;
+  }
 }
 
 function collectCurrentInputs() {
   if (!selectedCard) return;
+  if (!Array.isArray(selectedCard.fields)) selectedCard.fields = [];
   const nameInput = document.getElementById('detail-card-name');
   if (nameInput) selectedCard.name = nameInput.value;
   const memoInput = document.getElementById('detail-memo-input');
@@ -197,33 +247,35 @@ function collectCurrentInputs() {
 }
 
 function sortedByName(arr) {
-  return [...arr].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+  if (!Array.isArray(arr)) return [];
+  return [...arr].sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }));
 }
 
 function renderSidebar(filter = '') {
   const list = document.getElementById('category-list');
   list.innerHTML = '';
-  const lf = filter.toLowerCase();
+  const lf = (filter || '').toLowerCase();
 
   sortedByName(data.categories).forEach(cat => {
-    const sortedCards = sortedByName(cat.cards);
+    const cards = Array.isArray(cat.cards) ? cat.cards : [];
+    const sortedCards = sortedByName(cards);
     const filteredCards = sortedCards.filter(c =>
-      !lf || c.name.toLowerCase().includes(lf) ||
-      c.fields.some(f => f.value.toLowerCase().includes(lf) || f.key.toLowerCase().includes(lf))
+      !lf || String(c.name || '').toLowerCase().includes(lf) ||
+      (Array.isArray(c.fields) && c.fields.some(f => String(f.value || '').toLowerCase().includes(lf) || String(f.key || '').toLowerCase().includes(lf)))
     );
     if (lf && filteredCards.length === 0) return;
 
     const catEl = document.createElement('div');
     catEl.className = 'category-item';
     catEl.innerHTML = `
-      <div class="category-header" data-id="${cat.id}">
-        <span class="cat-name">${escHtml(cat.name)}</span>
+      <div class="category-header" data-id="${escAttr(cat.id || '')}">
+        <span class="cat-name">${escHtml(cat.name || '')}</span>
         <span class="cat-actions">
-          <button class="btn-small btn-add-card" data-cat="${cat.id}" title="カード追加">+</button>
-          <button class="btn-small btn-rename-cat" data-cat="${cat.id}" title="名前変更">
+          <button class="btn-small btn-add-card" data-cat="${escAttr(cat.id || '')}" title="カード追加">+</button>
+          <button class="btn-small btn-rename-cat" data-cat="${escAttr(cat.id || '')}" title="名前変更">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>
-          <button class="btn-small btn-del-cat" data-cat="${cat.id}" title="削除">×</button>
+          <button class="btn-small btn-del-cat" data-cat="${escAttr(cat.id || '')}" title="削除">×</button>
         </span>
       </div>
     `;
@@ -234,14 +286,14 @@ function renderSidebar(filter = '') {
       cardEl.className = 'card-item' + (selectedCard && selectedCard.id === card.id ? ' active' : '');
       cardEl.dataset.cardId = card.id;
       cardEl.dataset.catId = cat.id;
-      cardEl.innerHTML = `<span class="card-name">${escHtml(card.name)}</span>`;
+      cardEl.innerHTML = `<span class="card-name">${escHtml(card.name || '')}</span>`;
       list.appendChild(cardEl);
     });
   });
 }
 
 function isPasswordField(key) {
-  const k = key.toLowerCase();
+  const k = String(key || '').toLowerCase();
   return k.includes('パスワード') || k.includes('password') || k.includes('pass') || k.includes('secret');
 }
 
@@ -258,10 +310,10 @@ function renderCategorySelect() {
   if (selectedCategoryId) sel.value = selectedCategoryId;
 }
 
-function showCardDetail(catId, cardId) {
-  collectCurrentInputs();
+function showCardDetail(catId, cardId, skipCollect = false) {
+  if (!skipCollect) collectCurrentInputs();
   const cat = data.categories.find(c => c.id === catId);
-  if (!cat) return;
+  if (!cat || !Array.isArray(cat.cards)) return;
   const card = cat.cards.find(c => c.id === cardId);
   if (!card) return;
 
@@ -271,7 +323,7 @@ function showCardDetail(catId, cardId) {
 
   document.getElementById('welcome-screen').style.display = 'none';
   document.getElementById('card-detail').style.display = 'block';
-  document.getElementById('detail-card-name').value = card.name;
+  document.getElementById('detail-card-name').value = card.name || '';
 
   const memoInput = document.getElementById('detail-memo-input');
   if (memoInput) memoInput.value = card.memo || '';
@@ -279,10 +331,13 @@ function showCardDetail(catId, cardId) {
   const fieldsDiv = document.getElementById('detail-fields');
   fieldsDiv.innerHTML = '';
 
+  if (!Array.isArray(card.fields)) card.fields = [];
   card.fields.forEach((field, idx) => {
+    if (typeof field.key !== 'string') field.key = '';
+    if (typeof field.value !== 'string') field.value = '';
     const row = document.createElement('div');
     row.className = 'field-row';
-    const isPasswordType = field.masked !== undefined || isPasswordField(field.key);
+    const isPasswordType = field.masked !== undefined || isPasswordField(field.key || '');
     const isCurrentlyHidden = isPasswordType && field.masked !== false;
     const eyeOpen = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
     const eyeClosed = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
@@ -303,12 +358,17 @@ function showCardDetail(catId, cardId) {
 
 function escHtml(s) {
   const d = document.createElement('div');
-  d.textContent = s;
+  d.textContent = String(s ?? '');
   return d.innerHTML;
 }
 
 function escAttr(s) {
-  return s.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 function genId() {
@@ -391,9 +451,10 @@ document.getElementById('btn-add-category').addEventListener('click', () => {
 document.getElementById('btn-add-field').addEventListener('click', () => {
   if (!selectedCard) return;
   collectCurrentInputs();
+  if (!Array.isArray(selectedCard.fields)) selectedCard.fields = [];
   selectedCard.fields.push({ key: '新しい項目', value: '', masked: true });
   markDirty();
-  showCardDetail(selectedCategoryId, selectedCard.id);
+  showCardDetail(selectedCategoryId, selectedCard.id, true);
 });
 
 document.getElementById('detail-category-select').addEventListener('change', e => {
@@ -433,6 +494,7 @@ document.getElementById('detail-fields').addEventListener('click', e => {
     const idx = parseInt(toggleBtn.dataset.idx);
     if (selectedCard && selectedCard.fields[idx]) {
       selectedCard.fields[idx].masked = input.type === 'password' ? false : true;
+      markDirty();
     }
     if (input.type === 'password') {
       input.type = 'text';
@@ -465,11 +527,11 @@ document.getElementById('detail-fields').addEventListener('click', e => {
   const delBtn = e.target.closest('.btn-delete-field');
   if (delBtn) {
     const idx = parseInt(delBtn.dataset.idx);
-    if (!selectedCard) return;
+    if (!selectedCard || !Array.isArray(selectedCard.fields)) return;
     collectCurrentInputs();
     selectedCard.fields.splice(idx, 1);
     markDirty();
-    showCardDetail(selectedCategoryId, selectedCard.id);
+    showCardDetail(selectedCategoryId, selectedCard.id, true);
   }
 });
 
@@ -502,8 +564,11 @@ document.getElementById('btn-export-confirm').addEventListener('click', async ()
     : 'spw.zip';
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
   document.getElementById('export-modal').style.display = 'none';
 });
 
@@ -530,21 +595,38 @@ document.getElementById('btn-import-confirm').addEventListener('click', async ()
   const file = fileInput.files[0];
   const reader = new FileReader();
   reader.onload = async () => {
-    const base64 = reader.result.split(',')[1];
-    const res = await apiFetch('/api/import', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password, fileData: base64 })
-    });
-    const result = await res.json();
-    if (result.success) {
-      alert('インポートが完了しました');
-      document.getElementById('import-modal').style.display = 'none';
-      await loadData();
-    } else {
-      alert('インポートに失敗しました: ' + (result.error || '不明なエラー'));
+    try {
+      if (typeof reader.result !== 'string' || !reader.result.includes(',')) {
+        alert('インポートに失敗しました: ファイルを読み込めません');
+        return;
+      }
+      const base64 = reader.result.split(',')[1];
+      if (!base64) {
+        alert('インポートに失敗しました: ファイルを読み込めません');
+        return;
+      }
+      const res = await apiFetch('/api/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password, fileData: base64 })
+      });
+      const result = await res.json();
+      if (result.success) {
+        alert('インポートが完了しました');
+        document.getElementById('import-modal').style.display = 'none';
+        await loadData();
+        selectedCard = null;
+        selectedCategoryId = null;
+        document.getElementById('card-detail').style.display = 'none';
+        document.getElementById('welcome-screen').style.display = 'flex';
+      } else {
+        alert('インポートに失敗しました: ' + (result.error || '不明なエラー'));
+      }
+    } catch (e) {
+      alert('インポートに失敗しました: サーバーに接続できません');
     }
   };
+  reader.onerror = () => alert('インポートに失敗しました: ファイルを読み込めません');
   reader.readAsDataURL(file);
 });
 
