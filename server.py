@@ -14,7 +14,7 @@ CFG_FILE  = DATA_DIR / 'config.json'
 BACKUP_DIR= DATA_DIR / 'backups'
 PUB_DIR   = BASE_DIR / 'public'
 
-APP_VERSION  = '1.0.2'
+APP_VERSION  = '1.0.3'
 APP_PATH     = Path(__file__).resolve()
 SERVICE_NAME = os.environ.get('SPW_SERVICE', 'spw')
 GITHUB_RAW   = 'https://raw.githubusercontent.com/hirogura/spw/main/'
@@ -91,7 +91,9 @@ def validate_password_data(data):
   return True
 
 def save_encrypted(data, password):
-  tmp = Path(tempfile.mkdtemp())
+  # NOTE: os.replace は同一FS内でしか使えないため、tmp を DATA_DIR 配下
+  # (PW_ZIP と同一FS) に作ることで /tmp が別FS(tmpfs)でも EXDEV にならない。
+  tmp = Path(tempfile.mkdtemp(dir=str(DATA_DIR)))
   try:
     jf = tmp / 'passwords.json'
     jf.write_text(json.dumps(data, indent=2, ensure_ascii=False))
@@ -100,7 +102,11 @@ def save_encrypted(data, password):
       ['7z', 'a', '-tzip', '-mem=AES256', f'-p{password}', str(tmp_zip), str(jf)],
       check=True, capture_output=True, timeout=30
     )
-    os.replace(tmp_zip, PW_ZIP)
+    try:
+      os.replace(tmp_zip, PW_ZIP)
+    except OSError:
+      # 万が一別FSになった場合のフォールバック (コピー+削除)
+      shutil.move(str(tmp_zip), str(PW_ZIP))
   finally:
     shutil.rmtree(tmp, ignore_errors=True)
 
