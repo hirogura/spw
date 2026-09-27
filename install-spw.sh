@@ -5,7 +5,7 @@ REPO_URL="https://github.com/hirogura/spw.git"
 REPO_BRANCH="main"
 INSTALL_DIR="/opt/lxd-data/spw"
 SERVICE_NAME="spw"
-PORT="${PORT:-3345}"
+PORT="${PORT:-3344}"
 TAILSCALE_PORT=3344
 
 echo "=== SPW Password Manager Installer (GitHub) ==="
@@ -134,7 +134,7 @@ echo ""
 if [ -n "$TAILSCALE_DOMAIN" ]; then
   echo "URL (HTTPS): https://${TAILSCALE_DOMAIN}:${TAILSCALE_PORT}"
 fi
-echo "URL (ローカル): http://$(hostname -I | awk '{print $1}'):${PORT}"
+echo "URL (ローカル確認用): http://127.0.0.1:${PORT}"
 echo ""
 echo "コマンド:"
 echo "  systemctl status  ${SERVICE_NAME}   # 状態確認"

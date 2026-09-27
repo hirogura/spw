@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 from pathlib import Path
 from datetime import datetime
 
-PORT      = int(os.environ.get('PORT', 3345))
+PORT      = int(os.environ.get('PORT', 3344))
 BASE_DIR  = Path(__file__).parent
 DATA_DIR  = BASE_DIR / 'data'
 PW_ZIP    = DATA_DIR / 'spw.zip'
@@ -15,7 +15,7 @@ CFG_FILE  = DATA_DIR / 'config.json'
 BACKUP_DIR= DATA_DIR / 'backups'
 PUB_DIR   = BASE_DIR / 'public'
 
-APP_VERSION  = '1.1.0'
+APP_VERSION  = '1.1.1'
 APP_PATH     = Path(__file__).resolve()
 SERVICE_NAME = os.environ.get('SPW_SERVICE', 'spw')
 GITHUB_RAW   = 'https://raw.githubusercontent.com/hirogura/spw/main/'
@@ -855,6 +855,8 @@ class Handler(BaseHTTPRequestHandler):
 
 from http.server import ThreadingHTTPServer
 threading.Thread(target=sync_scheduler_loop, daemon=True).start()
-print(f'SPW Password Manager running on http://0.0.0.0:{PORT}')
-server = ThreadingHTTPServer(('0.0.0.0', PORT), Handler)
+# Tailscale Serve が TLS 終端用に <tailscale IP>:PORT をバインドできるよう、
+# アプリは 127.0.0.1 のみで待機する (LAN からの平文HTTP直アクセスは不可)。
+print(f'SPW Password Manager running on http://127.0.0.1:{PORT}')
+server = ThreadingHTTPServer(('127.0.0.1', PORT), Handler)
 server.serve_forever()

@@ -47,7 +47,7 @@ sudo bash install-spw.sh
 
 インストール完了時に表示されます。例:
 
-- ローカル: `http://<IP>:3345`
+- ローカル確認用: `http://127.0.0.1:3344`（アプリは loopback のみで待機）
 - Tailscale HTTPS: `https://<ホスト名>:3344`
 
 ポートは環境変数 `PORT` で変更できます。
