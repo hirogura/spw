@@ -681,4 +681,128 @@ document.getElementById('detail-fields').addEventListener('input', e => {
   }
 });
 
+// ---------- 同期 (sync) ----------
+let syncRole = 'source';
+
+function setSyncRole(r) {
+  syncRole = (r === 'destination') ? 'destination' : 'source';
+  document.getElementById('sync-role-source').classList.toggle('active', syncRole === 'source');
+  document.getElementById('sync-role-dest').classList.toggle('active', syncRole === 'destination');
+  document.getElementById('sync-role-desc').textContent = syncRole === 'source'
+    ? 'このPCが「同期元」: 相手（同期先）へ暗号化データを送ります。保存すると相手は自動で「同期先」になります。'
+    : 'このPCが「同期先」: 相手（同期元）から暗号化データを受け取ります。保存すると相手は自動で「同期元」になります。';
+}
+
+function renderSyncStatus(cfg) {
+  const roleLabel = cfg.role === 'destination' ? '同期先' : '同期元';
+  const peerLabel = cfg.peer_name ? cfg.peer_name + '（' + cfg.peer + '）' : (cfg.peer || '未設定');
+  const last = cfg.last_sync ? '最終同期: ' + cfg.last_sync : '最終同期: まだありません';
+  const result = cfg.last_result ? '結果: ' + cfg.last_result : '';
+  document.getElementById('sync-status').textContent =
+    '役割: ' + roleLabel + ' ／ 相手: ' + peerLabel + ' ／ 時刻: ' + (cfg.sync_time || '--:--') + ' ／ ' + last + (result ? ' ／ ' + result : '');
+}
+
+async function openSyncSettings() {
+  document.getElementById('sync-modal').style.display = 'flex';
+  document.getElementById('sync-status').textContent = '読み込み中…';
+  setSyncRole('source');
+  try {
+    const [peerRes, cfgRes] = await Promise.all([apiFetch('/api/sync/peers'), apiFetch('/api/sync/config')]);
+    const peers = await peerRes.json();
+    const cfg = await cfgRes.json();
+    if (!cfg || cfg.error) { document.getElementById('sync-status').textContent = '設定の読み込みに失敗しました'; return; }
+    setSyncRole(cfg.role === 'destination' ? 'destination' : 'source');
+    const sel = document.getElementById('sync-peer');
+    const cur = cfg.peer || '';
+    const list = (peers && peers.peers) || [];
+    sel.innerHTML = '<option value="">-- 選択してください --</option>' + list.map(p => {
+      const state = p.online ? '' : '（オフライン）';
+      const label = p.name + ' [' + p.dns + ']' + state;
+      const selected = p.url === cur ? ' selected' : '';
+      return '<option value="' + escAttr(p.url) + '" data-name="' + escAttr(p.name) + '"' + selected + '>' + escHtml(label) + '</option>';
+    }).join('');
+    if (cur && !list.some(p => p.url === cur)) {
+      sel.innerHTML += '<option value="' + escAttr(cur) + '" selected>' + escHtml(cfg.peer_name ? cfg.peer_name + ' [' + cur + ']' : cur) + '（一覧外）</option>';
+    }
+    document.getElementById('sync-time').value = cfg.sync_time || '03:00';
+    renderSyncStatus(cfg);
+  } catch (e) {
+    document.getElementById('sync-status').textContent = '設定の読み込みに失敗しました';
+  }
+}
+
+function closeSyncSettings() {
+  document.getElementById('sync-modal').style.display = 'none';
+}
+
+document.getElementById('btn-sync').addEventListener('click', openSyncSettings);
+document.getElementById('btn-sync-close').addEventListener('click', closeSyncSettings);
+document.getElementById('sync-role-source').addEventListener('click', () => setSyncRole('source'));
+document.getElementById('sync-role-dest').addEventListener('click', () => setSyncRole('destination'));
+document.getElementById('sync-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeSyncSettings();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('sync-modal').style.display !== 'none') closeSyncSettings();
+});
+
+document.getElementById('btn-sync-save').addEventListener('click', async () => {
+  const sel = document.getElementById('sync-peer');
+  const peer = sel.value;
+  const peerName = sel.selectedOptions.length ? (sel.selectedOptions[0].dataset.name || '') : '';
+  const syncTime = document.getElementById('sync-time').value;
+  if (!peer) return alert('同期相手を選択してください');
+  if (!syncTime) return alert('同期時刻を指定してください');
+  const res = await apiFetch('/api/sync/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role: syncRole, peer, peer_name: peerName, sync_time: syncTime })
+  });
+  const d = await res.json();
+  if (!res.ok || !d.ok) return alert(d.error || '保存に失敗しました');
+  alert(d.peer_message || '保存しました');
+  const cfgRes = await apiFetch('/api/sync/config');
+  const cfg = await cfgRes.json();
+  if (cfg && !cfg.error) renderSyncStatus(cfg);
+});
+
+document.getElementById('btn-sync-now').addEventListener('click', async () => {
+  const b = document.getElementById('btn-sync-now');
+  b.disabled = true; b.textContent = '同期中…';
+  try {
+    const res = await apiFetch('/api/sync/run', { method: 'POST' });
+    const d = await res.json();
+    if (!res.ok || !d.ok) alert(d.error || '同期に失敗しました');
+    else { alert(d.message || '同期しました'); loadData(); }
+    const cfgRes = await apiFetch('/api/sync/config');
+    const cfg = await cfgRes.json();
+    if (cfg && !cfg.error) renderSyncStatus(cfg);
+  } catch (e) {
+    alert('同期に失敗しました');
+  }
+  b.disabled = false; b.textContent = '⚡ 今すぐ同期';
+});
+
+document.getElementById('btn-sync-stop').addEventListener('click', async () => {
+  if (!confirm('同期を停止しますか？\n相手の指定が外れ、自動同期も行われなくなります。')) return;
+  const b = document.getElementById('btn-sync-stop');
+  b.disabled = true;
+  try {
+    const res = await apiFetch('/api/sync/stop', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    const d = await res.json();
+    if (!res.ok || !d.ok) alert(d.error || '停止に失敗しました');
+    else alert(d.peer_message || '同期を停止しました');
+    const cfgRes = await apiFetch('/api/sync/config');
+    const cfg = await cfgRes.json();
+    if (cfg && !cfg.error) { document.getElementById('sync-peer').value = ''; renderSyncStatus(cfg); }
+  } catch (e) {
+    alert('停止に失敗しました');
+  }
+  b.disabled = false;
+});
+
 checkAuth();

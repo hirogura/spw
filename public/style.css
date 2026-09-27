@@ -145,6 +145,21 @@ body {
 
 .sidebar-footer .btn-small { flex: 1; font-size: 11px; padding: 4px 6px; }
 
+#btn-sync { grid-column: 1; }
+
+.sync-row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+.sync-row label { font-size: 12px; font-weight: 700; min-width: 64px; color: var(--text); }
+.sync-role { display: flex; border: 1px solid var(--border); overflow: hidden; }
+.sync-role button { border: none; background: var(--surface); color: var(--text-muted); padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.sync-role button.active { background: var(--accent); color: #fff; }
+.sync-desc { font-size: 11px; color: var(--text-muted); margin: -6px 0 12px; }
+.sync-row select, .sync-row input[type=time] { flex: 1; min-width: 180px; padding: 6px 10px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text); font-size: 12px; outline: none; }
+.sync-row select:focus, .sync-row input[type=time]:focus { border-color: var(--accent); }
+.sync-hint { font-size: 11px; color: var(--text-muted); }
+#sync-status { font-size: 11px; color: var(--text-muted); background: var(--surface); border: 1px solid var(--border); padding: 8px 10px; margin-bottom: 4px; white-space: pre-wrap; }
+#sync-modal .modal-content { min-width: 340px; max-width: 520px; width: calc(100% - 40px); }
+#sync-modal .modal-actions { flex-wrap: wrap; }
+
 .category-item { border-bottom: 1px solid #eee; }
 
 .category-header {

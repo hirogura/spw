@@ -62,6 +62,10 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
           ログアウト
         </button>
+        <button id="btn-sync" class="btn-small" title="別PCと同期">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10"/><path d="M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+          同期
+        </button>
       </div>
     </aside>
     <main id="main-content">
@@ -123,6 +127,37 @@
       <div class="modal-actions">
         <button id="btn-change-pw-cancel" class="btn-small">キャンセル</button>
         <button id="btn-change-pw-confirm" class="btn-primary">変更</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="sync-modal" class="modal" style="display:none">
+    <div class="modal-content">
+      <h3>🔄 SPW 同期</h3>
+      <p>別PCの SPW と1日1回・片方向で同期します（予備機用途・同期先は1箇所のみ）。暗号化ファイルのみを送受信します。相手PCも最新版の SPW に更新し、両PCのマスターパスワードを同一にしてください。</p>
+      <div class="sync-row">
+        <label>役割</label>
+        <div class="sync-role">
+          <button id="sync-role-source">同期元（送る側）</button>
+          <button id="sync-role-dest">同期先（受ける側）</button>
+        </div>
+      </div>
+      <div class="sync-desc" id="sync-role-desc"></div>
+      <div class="sync-row">
+        <label>同期相手</label>
+        <select id="sync-peer"><option value="">-- 選択してください --</option></select>
+      </div>
+      <div class="sync-row">
+        <label>同期時刻</label>
+        <input type="time" id="sync-time" value="03:00">
+        <span class="sync-hint">1日1回この時刻以降に自動同期</span>
+      </div>
+      <div id="sync-status">読み込み中…</div>
+      <div class="modal-actions">
+        <button id="btn-sync-close" class="btn-small">閉じる</button>
+        <button id="btn-sync-now" class="btn-primary">⚡ 今すぐ同期</button>
+        <button id="btn-sync-save" class="btn-primary">保存</button>
+        <button id="btn-sync-stop" class="btn-small">同期を停止</button>
       </div>
     </div>
   </div>
