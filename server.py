@@ -15,7 +15,7 @@ CFG_FILE  = DATA_DIR / 'config.json'
 BACKUP_DIR= DATA_DIR / 'backups'
 PUB_DIR   = BASE_DIR / 'public'
 
-APP_VERSION  = '1.1.1'
+APP_VERSION  = '1.1.2'
 APP_PATH     = Path(__file__).resolve()
 SERVICE_NAME = os.environ.get('SPW_SERVICE', 'spw')
 GITHUB_RAW   = 'https://raw.githubusercontent.com/hirogura/spw/main/'
@@ -731,10 +731,11 @@ class Handler(BaseHTTPRequestHandler):
         opposite = SYNC_ROLE_DEST if role == SYNC_ROLE_SOURCE else SYNC_ROLE_SOURCE
         try:
           _http_post_json(peer.rstrip('/') + '/api/sync/role',
-                          {'role': opposite, 'peer_url': get_self_base_url(),
-                           'peer_name': get_self_host_name()}, timeout=10)
+                           {'role': opposite, 'peer_url': get_self_base_url(),
+                            'peer_name': get_self_host_name(),
+                            'sync_time': sync_time}, timeout=10)
           peer_notified = True
-          peer_message = '相手側を「%s」に切り替えました' % ('同期先' if opposite == SYNC_ROLE_DEST else '同期元')
+          peer_message = '相手側を「%s」に切り替え、同期時刻（%s）を共有しました' % ('同期先' if opposite == SYNC_ROLE_DEST else '同期元', sync_time)
         except Exception as e:
           peer_message = f'相手側への通知に失敗しました（相手のSPWを最新版に更新してください）: {e}'
       self.send_json(200, {'ok': True, 'peer_notified': peer_notified,
@@ -760,8 +761,14 @@ class Handler(BaseHTTPRequestHandler):
       cfg['role'] = role
       if peer_url:
         cfg['peer'] = peer_url; cfg['peer_name'] = peer_name
+      # 同期時刻も共有する（旧バージョンからは送られてこないため任意扱い）。
+      # 形式が正しい場合のみ反映し、不正な値では役割の更新を妨げない。
+      sync_time = body.get('sync_time', '')
+      sync_time = sync_time.strip() if isinstance(sync_time, str) else ''
+      if valid_sync_time(sync_time):
+        cfg['sync_time'] = sync_time
       save_sync_config(cfg)
-      self.send_json(200, {'ok': True, 'role': role})
+      self.send_json(200, {'ok': True, 'role': role, 'sync_time': cfg.get('sync_time', '')})
 
     elif path == '/api/sync/import':
       try:
