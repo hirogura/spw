@@ -15,7 +15,7 @@ CFG_FILE  = DATA_DIR / 'config.json'
 BACKUP_DIR= DATA_DIR / 'backups'
 PUB_DIR   = BASE_DIR / 'public'
 
-APP_VERSION  = '1.1.2'
+APP_VERSION  = '1.1.3'
 APP_PATH     = Path(__file__).resolve()
 SERVICE_NAME = os.environ.get('SPW_SERVICE', 'spw')
 GITHUB_RAW   = 'https://raw.githubusercontent.com/hirogura/spw/main/'
@@ -722,8 +722,14 @@ class Handler(BaseHTTPRequestHandler):
       if not valid_sync_time(sync_time):
         self.send_json(400, {'ok': False, 'error': '同期時刻は HH:MM 形式で指定してください'}); return
       cfg = load_sync_config()
+      old_sync_time = cfg.get('sync_time', '')
       cfg['role'] = role; cfg['peer'] = peer
       cfg['peer_name'] = peer_name; cfg['sync_time'] = sync_time
+      if sync_time != old_sync_time:
+        # 同期時刻が変わったら当日の同期済みフラグをリセットし、
+        # その日のうちに即時テストできるようにする。
+        cfg['last_sync'] = ''
+        cfg['last_result'] = '同期時刻を変更したため、当日の同期済みフラグをリセットしました'
       save_sync_config(cfg)
       # 相手側の役割を反対にそろえる（相手が旧バージョン等で失敗しても保存自体は成功扱い）
       peer_notified, peer_message = False, ''
@@ -758,6 +764,7 @@ class Handler(BaseHTTPRequestHandler):
       if peer_url and not is_valid_peer_url(peer_url):
         self.send_json(400, {'ok': False, 'error': 'invalid peer_url'}); return
       cfg = load_sync_config()
+      old_sync_time = cfg.get('sync_time', '')
       cfg['role'] = role
       if peer_url:
         cfg['peer'] = peer_url; cfg['peer_name'] = peer_name
@@ -767,6 +774,11 @@ class Handler(BaseHTTPRequestHandler):
       sync_time = sync_time.strip() if isinstance(sync_time, str) else ''
       if valid_sync_time(sync_time):
         cfg['sync_time'] = sync_time
+      if valid_sync_time(sync_time) and sync_time != old_sync_time:
+        # 相手側で時刻が変わった場合も当日の同期済みフラグをリセットし、
+        # その日のうちに即時テストできるようにする。
+        cfg['last_sync'] = ''
+        cfg['last_result'] = '同期時刻を変更したため、当日の同期済みフラグをリセットしました'
       save_sync_config(cfg)
       self.send_json(200, {'ok': True, 'role': role, 'sync_time': cfg.get('sync_time', '')})
 
