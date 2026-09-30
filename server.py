@@ -15,7 +15,7 @@ CFG_FILE  = DATA_DIR / 'config.json'
 BACKUP_DIR= DATA_DIR / 'backups'
 PUB_DIR   = BASE_DIR / 'public'
 
-APP_VERSION  = '1.1.3'
+APP_VERSION  = '1.1.4'
 APP_PATH     = Path(__file__).resolve()
 SERVICE_NAME = os.environ.get('SPW_SERVICE', 'spw')
 GITHUB_RAW   = 'https://raw.githubusercontent.com/hirogura/spw/main/'

@@ -693,11 +693,25 @@ function setSyncRole(r) {
     : 'このPCが「同期先」: 相手（同期元）から暗号化データを受け取ります。保存すると相手は自動で「同期元」になります。';
 }
 
+function fmtSyncDate(s) {
+  try {
+    const d = new Date(s);
+    if (isNaN(d)) return s;
+    const p = n => String(n).padStart(2, '0');
+    return d.getFullYear() + '/' + p(d.getMonth() + 1) + '/' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  } catch { return s; }
+}
+
+function fmtSyncText(s) {
+  if (typeof s !== 'string') return s;
+  return s.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?/g, m => fmtSyncDate(m));
+}
+
 function renderSyncStatus(cfg) {
   const roleLabel = cfg.role === 'destination' ? '同期先' : '同期元';
   const peerLabel = cfg.peer_name ? cfg.peer_name + '（' + cfg.peer + '）' : (cfg.peer || '未設定');
-  const last = cfg.last_sync ? '最終同期: ' + cfg.last_sync : '最終同期: まだありません';
-  const result = cfg.last_result ? '結果: ' + cfg.last_result : '';
+  const last = cfg.last_sync ? '最終同期: ' + fmtSyncDate(cfg.last_sync) : '最終同期: まだありません';
+  const result = cfg.last_result ? '結果: ' + fmtSyncText(cfg.last_result) : '';
   document.getElementById('sync-status').textContent =
     '役割: ' + roleLabel + ' ／ 相手: ' + peerLabel + ' ／ 時刻: ' + (cfg.sync_time || '--:--') + ' ／ ' + last + (result ? ' ／ ' + result : '');
 }
@@ -772,8 +786,8 @@ document.getElementById('btn-sync-now').addEventListener('click', async () => {
   try {
     const res = await apiFetch('/api/sync/run', { method: 'POST' });
     const d = await res.json();
-    if (!res.ok || !d.ok) alert(d.error || '同期に失敗しました');
-    else { alert(d.message || '同期しました'); loadData(); }
+    if (!res.ok || !d.ok) alert(fmtSyncText(d.error || '同期に失敗しました'));
+    else { alert(fmtSyncText(d.message || '同期しました')); loadData(); }
     const cfgRes = await apiFetch('/api/sync/config');
     const cfg = await cfgRes.json();
     if (cfg && !cfg.error) renderSyncStatus(cfg);
